@@ -1,0 +1,133 @@
+chapter 4 
+========================================================
+
+##Q10
+(a)
+```{r}
+library(ISLR)
+?Weekly
+pairs(Weekly, col=Weekly$Direction)
+boxplot(Lag1~Direction, data=Weekly)
+```
+More volume is traded in more recent years, but it doesn't appear that there is a strong relationship beween Lags and Direction.
+
+(b)
+```{r}
+glm.fit = glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume, family=binomial, data=Weekly)
+summary(glm.fit)
+```
+Using the whole data, coefficient for the Lag2 variable is significant. 
+
+(c)
+```{r}
+glm.pred = predict(glm.fit, type="response")
+glm.direction=ifelse(glm.pred>.5,"Up","Down")
+table(glm.direction, Direction)
+mean(glm.direction==Direction)
+```
+Overall correct prediction is 56.10%. False alerm (predicting "Up," when in fact 
+down) rate was 430/(54+430)=88.8%, and miss (predicting "Down," when up) rate was 48/(48+557)=7.9%.
+
+(d)
+```{r}
+# first define what's training (data before year 2009), and what's test (data from 2009 & 2010). then create the model.
+train=Year<2009
+Direction.test = Direction[!train]
+glm.train=glm(Direction~Lag2, family=binomial, subset=train)
+
+# make prediction
+glm.probs=predict(glm.train, newdata=Weekly[!train,], type="response")
+glm.pred = ifelse(glm.probs>.5, "Up","Down")
+
+# examine the confusion matrix and prediction accuracy
+table(glm.pred,Direction.test)
+mean(glm.pred==Direction.test)
+```
+Prediction accuracy is 62.5%. False alarm is 34/(9+34)=79.1%, and miss is 5/(5+56)=8.2%
+
+(e)
+```{r}
+lda.train=lda(Direction~Lag2, data=Weekly, subset=train)
+lda.pred=predict(lda.train, newdata=Weekly[!train,])
+
+table(lda.pred$class, Direction.test)
+mean(lda.pred$class==Direction.test)
+```
+Results from LDA is almost identical to that of the logistics regression. The prediction accuracy is 62.5%. False alarm is 34/(9+34)=79.1%, and miss is 5/(5+56)=8.2%, just like in the logistic regression.
+
+(f)
+```{r}
+qda.train = qda(Direction~Lag2, data=Weekly, subset=train)
+qda.test=predict(qda.train, newdata=Weekly[!train,])
+
+table(qda.test$class, Direction.test)
+mean(qda.test$class==Direction.test)
+```
+Results from QDA is still not bad (58.7%), but lower than those of the logistics regression and LDA. This is because the model predicted only "Up"s. False alarm is 43/(43+)=100%, and miss is 0/(0+61)=0%. QDA does not appear to be a good mmodel for this data set.
+
+(g)
+```{r}
+train.X = cbind(Lag2[train])
+test.X = cbind(Lag2[!train])
+
+knn.pred=knn(train.X, test.X, Direction.train,k=1)
+table(knn.pred, Direction.test)
+mean(knn.pred==Direction.test)
+```
+Now with KNN with the kernel size of 1, the prediction accuracy is close to chance (51.0%) False alarm is 22/(21+22)=51.2%, and miss is 29/(29+32)=47.5%.
+
+(h)
+So far, logisitc regression returns the highest accuracy, but with very high false alarm rate.
+
+(i)
+```{r}
+# try different kernel size in KNN
+a=matrix(0,1,20)
+for (i in 1:20){
+knn.pred=knn(train.X, test.X, Direction.train,k=i)
+a[i]=mean(knn.pred==Direction.test)
+}
+```
+With the increasing kernel size, the accuracy of KNN goes up, until k is about 15, at which point the accuracy reaches the peak, and then starts declining.
+
+From (b), Lag1 might also be contributing to the prediction, so let's add that into the model...
+```{r}
+# Logistic regression
+glm.train=glm(Direction~Lag1+Lag2, family=binomial, subset=train)
+
+# make prediction
+glm.probs=predict(glm.train, newdata=Weekly[!train,], type="response")
+glm.pred = ifelse(glm.probs>.5, "Up","Down")
+
+# examine the confusion matrix and prediction accuracy
+table(glm.pred,Direction.test)
+mean(glm.pred==Direction.test)
+```
+accuracy increased slightly to 57.7%, but addition of Lag1 might not have that much effect.
+Maybe differrent decision threshold?
+
+```{r}
+# Logistic regression
+glm.train=glm(Direction~Lag1, family=binomial, subset=train)
+
+# make prediction
+glm.probs=predict(glm.train, newdata=Weekly[!train,], type="response")
+criteria = seq(from = .35, to = .65, by = .05)
+a=matrix(0,1,length(criteria))
+
+for (i in 1:length(criteria)) {
+  glm.pred = ifelse(glm.probs>criteria[i], "Up","Down")
+
+  # examine the confusion matrix and prediction accuracy
+  table(glm.pred,Direction.test)
+  a[i]=mean(glm.pred==Direction.test)
+}
+```
+accuracy is highest at the criteria=.5. Need to try other things to find a better fit with smaller FA...
+
+##Q11
+(a)
+```{r}
+library(ISLR)
+
+```
