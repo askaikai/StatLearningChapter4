@@ -67,6 +67,7 @@ Results from QDA is still not bad (58.7%), but lower than those of the logistics
 
 (g)
 ```{r}
+library(class)
 train.X = cbind(Lag2[train])
 test.X = cbind(Lag2[!train])
 
@@ -129,5 +130,199 @@ accuracy is highest at the criteria=.5. Need to try other things to find a bette
 (a)
 ```{r}
 library(ISLR)
+Auto$mpg01=rep(0,times=dim(Auto)[1])
+Auto$mpg01[Auto$mpg>median(Auto$mpg)]=1
+```
+
+(b)
+```{r}
+Auto$mpg01=factor(Auto$mpg01)
+pairs(Auto, col=Auto$mpg01)
+
+attach(Auto)
+boxplot(weight~mpg01)
+boxplot(acceleration~mpg01)
+```
+The heavier the weight, the smaller the mgp. The faster the acceleration, the bigger the mpg.
+
+(c)
+```{r}
+train=sample(c(1:dim(Auto)[1]),dim(Auto)[1]/2) # assign half the dataset to training
+trainData = Auto[train,]
+testData = Auto[-train,]
+```
+
+(d) let's use displacement/hoursepower/weight/acceleration to predict mpg01 in LDA
+```{r}
+lda.train = lda(mpg01~displacement+horsepower+weight+acceleration, data=Auto, subset=train)
+lda.test=predict(lda.train, newdata=testData)
+table(lda.test$class, testData$mpg01)
+mean(lda.test$class==testData$mpg01) # test accuracy
+mean(lda.test$class!=testData$mpg01) # test error
+```
+The lda model that includes displacement/hoursepower/weight/acceleration predicts mpg01 pretty accurately, with the accuracy of 90.3% (error rate = 9.7%)
+
+(e) same variable, QDA
+```{r}
+qda.train = qda(mpg01~displacement+horsepower+weight+acceleration, data=Auto, subset=train)
+qda.test=predict(qda.train, newdata=testData)
+table(qda.test$class, testData$mpg01)
+mean(qda.test$class==testData$mpg01) # test accuracy
+mean(qda.test$class!=testData$mpg01) # test error
+````
+not too bad, but slightly lower accuracy of 89.8% (error = 10.2%)
+
+(f) same variable, logistic regression
+```{r}
+glm.train=glm(mpg01~displacement+horsepower+weight+acceleration, data=Auto, subset=train, family=binomial)
+glm.probs=predict(glm.train, newdata=testData, type="response")
+glm.pred = ifelse(glm.probs>.5, 1,0)
+table(glm.pred, testData$mpg01)
+mean(glm.pred==testData$mpg01) # test accuracy
+mean(glm.pred!=testData$mpg01) # test error
+````
+not too bad, but slightly lower accuracy of 89.3% (error = 10.7%)
+
+(g) KNN with a few different values of kernel size
+```{r}
+train.X = cbind(displacement[train],horsepower[train],weight[train],acceleration[train])
+test.X = cbind(displacement[-train],horsepower[-train],weight[-train],acceleration[-train])
+
+knn.pred=knn(train.X, test.X, trainData$mpg01,k=1)
+table(knn.pred, testData$mpg01)
+mean(knn.pred==testData$mpg01)
+
+kRange = 1:15
+meanAcc = matrix(0,nrow=1,ncol=length(kRange))
+for (i in 1:length(kRange)){
+  knn.pred=knn(train.X, test.X, trainData$mpg01,k=kRange[i])
+  meanAcc[i]=mean(knn.pred==testData$mpg01)
+}
+meanAcc
+1-meanAcc
+```
+As the size of the kernel increases, the accuracy increases unitl k=9, at which point the accuracy reaches the plateu and may start decline. At k=9, the classification accuracy is 90.8% (error rate: 9.2%)
+
+##Q12
+(a)
+```{r}
+power = function(){
+  2^3
+}
+```
+
+(b)
+```{r}
+Power2 =function (x,a){
+  x^a
+}
+```
+
+(c)
+```{r}
+Power2(10,3)
+Power2(8,17)
+Power2(131,3)
+```
+
+(d)
+```{r}
+Power3 =function (x,a){
+  result=x^a
+  return(result)
+  x+a # this will not be returned, since I specified that result would be returned instead
+}
+result = Power3(4,2)
+result
+```
+
+(e)
+```{r}
+x = 1:10
+y=sapply(x,Power3,a=2)
+plot(x,log(y),main="power of 2",xlab="x",ylab="log of x^2",log="y")
 
 ```
+
+(e)
+```{r}
+PlotPower = function(x,a){
+  y=sapply(x,Power3,a)
+  plot(x,log(y),main="log(x to the 2nd)",xlab="x",ylab="log of x^2",log="y")
+}
+```
+
+##Q13
+(a)
+```{r}
+library(MASS)
+Boston$crimMed=ifelse(Boston$crim>median(Boston$crim),1,0)
+pairs(Boston,col=factor(Boston$crimMed))
+par(mfrow = c( 2, 2 ) )
+boxplot(rm~factor(crimMed))
+boxplot(nox~factor(crimMed))
+boxplot(dis~factor(crimMed))
+boxplot(lstat~factor(crimMed))
+lm.fit = lm(crimMed~rm+nox+dis+lstat, data=Boston)
+summary(lm.fit)
+}
+```
+at this point, I'm getting good idea of which set of variables would be a good predictor of crimMed. a linear regression confirmed that the combination of (rm + nox + dis + lstat) significantly predicts crimMed, so I'd start with these.
+
+first randomly select train and test data sets (50% of data)
+```{r}
+train=sample(c(1:dim(Boston)[1]),dim(Boston)[1]/2) # assign half the dataset to training
+trainData = Boston[train,]
+testData = Boston[-train,]
+```
+
+1. logistic regression
+```{r}
+glm.train=glm(crimMed~rm + nox + dis + lstat, data=trainData, family=binomial)
+glm.probs=predict(glm.train, newdata=testData, type="response")
+glm.test = ifelse(glm.probs>.5,1,0)
+table(glm.test, testData$crimMed)
+mean(glm.test==testData$crimMed)
+```
+classification accuracy is 86.6%. Not too bad. from the earlier observation, I noticed that lstat might not be a strong IV. so let's re-run the same analysis without it.
+
+```{r}
+glm.train=glm(crimMed~rm + nox + dis, data=trainData, family=binomial)
+#... same as above...#
+mean(glm.test==testData$crimMed)
+```
+now the accuracy increased slightly, 87.0%. let's just use rm + nox + dis as variables. 
+now LDA...
+```{r}
+lda.train = lda(crimMed~rm + nox + dis, data=trainData)
+lda.pred=predict(lda.train, newdata=testData)
+table(lda.pred$class, testData$crimMed)
+mean(lda.pred$class==testData$crimMed)
+```
+slightly lower accuracy, 84.6%
+now QDA...
+```{r}
+qda.train = qda(crimMed~rm + nox + dis, data=trainData)
+qda.pred=predict(qda.train, newdata=testData)
+table(qda.pred$class, testData$crimMed)
+mean(qda.pred$class==testData$crimMed)
+```
+slightly better than LDA, with 86.2% of accuracy
+KNN with kernek size increasing fomr 1 to 15
+```{r}
+train.X = cbind(rm[train],nox[train],dis[train])
+test.X = cbind(rm[-train],nox[-train],dis[-train])
+
+knn.pred=knn(train.X, test.X, trainData$crimMed,k=1)
+table(knn.pred, testData$crimMed)
+mean(knn.pred==testData$crimMed)
+
+runKNN = function(K){
+  knn.pred=knn(train.X, test.X, trainData$crimMed,K)
+  mean(knn.pred==testData$crimMed)
+}
+x=1:15
+y=sapply(x,runKNN)
+```
+K=1 returns the classification accuracy of 80.6%, and it fluctuates around that value all the way up to K=15. It's likely to go own after that, due to overfitting.
+
